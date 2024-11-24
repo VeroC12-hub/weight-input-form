@@ -1,8 +1,7 @@
 import React from 'react';
 import { useState, useCallback } from 'react';
 import { Scale, AlertCircle, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader } from "./components/ui/card";
-import './App.css';
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 const TARGET_WEIGHT = 50;
 const TOLERANCE = 0.5;
@@ -25,7 +24,7 @@ const INITIAL_FORM_STATE = {
   generalComments: ''
 };
 
-function App() {
+export default function App() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
@@ -89,12 +88,45 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Submitted data:', formData);
-      setFormData(INITIAL_FORM_STATE);
+      const formattedData = {
+        timestamp: new Date().toISOString(),
+        ...formData,
+        spoutData: formData.spoutData.map((spout, index) => ({
+          spoutNumber: index + 1,
+          sample1: spout.samples[0],
+          sample2: spout.samples[1],
+          sample3: spout.samples[2],
+          average: spout.average,
+          stdDev: spout.stdDev,
+          comments: spout.comments
+        }))
+      };
+
+      const response = await fetch('YOUR_GOOGLE_SCRIPT_URL_HERE', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formattedData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('Data submitted successfully!');
+        setFormData(INITIAL_FORM_STATE);
+      } else {
+        throw new Error(result.message || 'Failed to submit data');
+      }
     } catch (error) {
       console.error('Error submitting data:', error);
+      alert(`Failed to submit data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -282,5 +314,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
