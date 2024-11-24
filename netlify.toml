@@ -1,5 +1,11 @@
+[build]
+  command = "CI=false npm run build"
+  publish = "build"
+
 [[redirects]]
-  from = "/api/*"
-  to = "http://your-company-computer-ip:3000/api/:splat"
+  from = "/*"
+  to = "/index.html"
   status = 200
-  force = true
+
+[build.environment]
+  NODE_VERSION = "18"
