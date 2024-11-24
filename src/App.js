@@ -8,6 +8,7 @@ const TARGET_WEIGHT = 50;
 const TOLERANCE = 0.5;
 const MIN_WEIGHT = TARGET_WEIGHT - TOLERANCE;
 const MAX_WEIGHT = TARGET_WEIGHT + TOLERANCE;
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbx7TN4j6o_Rw_RsaTKidzCFk1FnGZyUAy9KxSrQf-YpiHQXu0F4hQTvyt4mvWTC1Ig/exec";
 
 const INITIAL_SPOUT_DATA = {
   samples: ['', '', ''],
@@ -28,6 +29,7 @@ const INITIAL_FORM_STATE = {
 function App() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+  const [submitStatus, setSubmitStatus] = useState({ success: false, message: '' });
 
   const calculateStats = useCallback((samples) => {
     const validSamples = samples.filter(s => s !== '').map(Number);
@@ -86,15 +88,56 @@ function App() {
     }));
   }, []);
 
+  const formatDataForSheet = (data) => {
+    const formattedData = [];
+    data.spoutData.forEach((spout, index) => {
+      formattedData.push({
+        timestamp: new Date().toISOString(),
+        operatorName: data.operatorName,
+        shift: data.shift,
+        date: data.date,
+        time: data.time,
+        spoutNumber: index + 1,
+        sample1: spout.samples[0],
+        sample2: spout.samples[1],
+        sample3: spout.samples[2],
+        average: spout.average,
+        stdDev: spout.stdDev,
+        spoutComments: spout.comments,
+        generalComments: data.generalComments
+      });
+    });
+    return formattedData;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setSubmitStatus({ success: false, message: '' });
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Submitted data:', formData);
+      const formattedData = formatDataForSheet(formData);
+      
+      const response = await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formattedData)
+      });
+
+      setSubmitStatus({
+        success: true,
+        message: 'Data successfully submitted to Google Sheets!'
+      });
       setFormData(INITIAL_FORM_STATE);
     } catch (error) {
       console.error('Error submitting data:', error);
+      setSubmitStatus({
+        success: false,
+        message: 'Error submitting data. Please try again.'
+      });
     } finally {
       setLoading(false);
     }
@@ -120,6 +163,12 @@ function App() {
         </CardHeader>
 
         <CardContent className="p-6">
+          {submitStatus.message && (
+            <div className={`mb-4 p-4 rounded-lg ${submitStatus.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {submitStatus.message}
+            </div>
+          )}
+
           <div className="flex items-center p-4 mb-6 bg-blue-50 rounded-lg border border-blue-200">
             <AlertCircle className="h-5 w-5 text-blue-500" />
             <p className="ml-3 text-sm text-blue-700">
