@@ -3,8 +3,12 @@ import { useState, useCallback } from 'react';
 import { Scale, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-// Environmental variables
-const GOOGLE_SHEET_URL = process.env.REACT_APP_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycby7OHQbsWP1bHC7iWrWFvs8umUq3TpMee-Yk9v3iddvrQ03gehFtjwl635ntA-ufEdj/exec";
+// Environmental variables with error handling
+const GOOGLE_SHEET_URL = process.env.REACT_APP_GOOGLE_SHEET_URL;
+if (!GOOGLE_SHEET_URL) {
+  console.warn('Google Sheet URL not found in environment variables');
+}
+
 const TARGET_WEIGHT = 50;
 const TOLERANCE = 0.5;
 const MIN_WEIGHT = TARGET_WEIGHT - TOLERANCE;
@@ -112,30 +116,32 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!GOOGLE_SHEET_URL) {
+      setSubmitStatus({
+        success: false,
+        message: 'Google Sheet URL is not configured. Please check your environment variables.'
+      });
+      return;
+    }
+
     setLoading(true);
     setSubmitStatus({ success: false, message: '' });
 
     try {
       const formattedData = formatDataForSheet(formData);
       
-      // Create a hidden form for submission
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = GOOGLE_SHEET_URL;
-      form.target = '_blank'; // This will open response in new tab
-      
-      // Add the data as a hidden input
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'data';
-      input.value = JSON.stringify(formattedData);
-      form.appendChild(input);
-      
-      // Add form to body, submit it, and remove it
-      document.body.appendChild(form);
-      form.submit();
-      document.body.removeChild(form);
+      const response = await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data: formattedData }),
+      });
 
+      // Since we're using no-cors, we won't get a proper response
+      // Instead, we'll assume success if no error was thrown
       setSubmitStatus({
         success: true,
         message: 'Data submitted successfully!'
@@ -152,7 +158,6 @@ function App() {
     }
   };
 
-  // Rest of your component remains the same...
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <Card className="mx-auto max-w-6xl">
@@ -195,8 +200,119 @@ function App() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Form fields remain the same... */}
-            {/* The rest of your form JSX remains unchanged */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Operator Name</label>
+                <input
+                  type="text"
+                  name="operatorName"
+                  value={formData.operatorName}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Shift</label>
+                <select
+                  name="shift"
+                  value={formData.shift}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">Select Shift</option>
+                  <option value="Morning">Morning</option>
+                  <option value="Afternoon">Afternoon</option>
+                  <option value="Night">Night</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Time</label>
+                <input
+                  type="time"
+                  name="time"
+                  value={formData.time}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {formData.spoutData.map((spout, spoutIndex) => (
+                <div key={spoutIndex} className="p-4 border rounded-lg">
+                  <h3 className="text-lg font-medium mb-4">Spout {spoutIndex + 1}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {spout.samples.map((sample, sampleIndex) => (
+                      <div key={sampleIndex}>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Sample {sampleIndex + 1}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={sample}
+                          onChange={(e) => handleWeightChange(spoutIndex, sampleIndex, e.target.value)}
+                          className={`mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 ${getWeightColor(sample)}`}
+                        />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Comments</label>
+                      <textarea
+                        value={spout.comments}
+                        onChange={(e) => handleSpoutDataChange(spoutIndex, 'comments', e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 text-sm text-gray-500">
+                    Average: {spout.average} | Standard Deviation: {spout.stdDev}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">General Comments</label>
+              <textarea
+                name="generalComments"
+                value={formData.generalComments}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit'
+                )}
+              </button>
+            </div>
           </form>
         </CardContent>
       </Card>

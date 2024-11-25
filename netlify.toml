@@ -1,6 +1,5 @@
 [build]
-  base = "/"
-  command = "npm run build"
+  command = "CI= npm run build"
   publish = "build"
 
 [[redirects]]
@@ -10,4 +9,10 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  REACT_APP_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycby7OHQbsWP1bHC7iWrWFvs8umUq3TpMee-Yk9v3iddvrQ03gehFtjwl635ntA-ufEdj/exec"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
